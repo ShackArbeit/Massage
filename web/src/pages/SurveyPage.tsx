@@ -31,7 +31,7 @@ function sectionHasData(section: Section | undefined, values: FormValues): boole
   return !!section?.questions.some((q) => !isEmptyValue(values[q.key]));
 }
 
-// 依顯示順序編號（A1、A2…），隱藏題不佔號
+
 function numberQuestions(values: FormValues): Map<string, string> {
   const numbers = new Map<string, string>();
   for (const s of sections) {
@@ -43,7 +43,6 @@ function numberQuestions(values: FormValues): Map<string, string> {
   return numbers;
 }
 
-// 所有欄位（含「其他」文字欄）的顯示順序，用於捲動到第一個錯誤與缺漏清單
 const FIELD_ORDER: { key: string; questionKey: string; sectionId: SectionId; label: Bi }[] = sections.flatMap((s) =>
   s.questions.flatMap((q) => {
     const own = { key: q.key, questionKey: q.key, sectionId: s.id, label: q.label };
@@ -75,12 +74,12 @@ export default function SurveyPage() {
   const [status, setStatus] = useState<{ kind: "success" | "error"; message: Bi }>();
   const optionalHasData = sectionHasData(OPTIONAL_SECTION, values);
 
-  // 被隱藏的題目與未選「其他」的文字欄：清除殘留值
+ 
   useEffect(() => {
     for (const f of staleFields(values)) setValue(f.name, f.value, { shouldValidate: isSubmitted });
   }, [values, setValue, isSubmitted]);
 
-  // 不保存草稿：重新整理後一律空白，並清除舊版殘留的資料
+
   useEffect(clearDraft, []);
 
   const numbers = numberQuestions(values);
@@ -134,7 +133,7 @@ export default function SurveyPage() {
     setStatus(undefined);
     try {
       await submitSurvey(data);
-      navigate("/thanks", { replace: true });
+      navigate("/thanks", { replace: true, state: { submitted: true } });
     } catch (e) {
       setStatus({ kind: "error", message: submitErrorMessage(e) });
     }

@@ -1,8 +1,16 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import BilingualLabel from "../components/form/BilingualLabel";
 import { CheckIcon } from "../components/icons";
 
+function isSubmittedState(state: unknown): boolean {
+  return typeof state === "object" && state !== null && "submitted" in state && state.submitted === true;
+}
+
 export default function ThanksPage() {
+  // 只有問卷送出成功後才能進入；直接輸入網址會導回問卷
+  const { state } = useLocation();
+  if (!isSubmittedState(state)) return <Navigate to="/" replace />;
+
   return (
     <main className="mx-auto flex min-h-dvh max-w-[720px] items-center px-4 py-12">
       <div className="w-full rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-stone-200">
@@ -16,12 +24,6 @@ export default function ThanksPage() {
             className="items-center"
           />
         </h1>
-        <div className="mt-4 space-y-1 text-sm text-stone-600">
-          <p>您的回饋對我的職業培訓申請非常重要。現在可以關閉此頁面。</p>
-          <p lang="de" className="text-stone-500">
-            Ihr Feedback ist für meine Ausbildungsbewerbung sehr wertvoll. Sie können diese Seite jetzt schließen.
-          </p>
-        </div>
         <Link
           to="/"
           replace

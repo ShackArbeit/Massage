@@ -4,7 +4,7 @@ import { Spinner } from "./components/icons";
 import SurveyPage from "./pages/SurveyPage";
 import ThanksPage from "./pages/ThanksPage";
 
-// 後台頁面延遲載入，受試者不必下載
+
 const AdminLayout = lazy(() => import("./pages/AdminLayout"));
 const AdminList = lazy(() => import("./pages/AdminList"));
 const AdminDetail = lazy(() => import("./pages/AdminDetail"));

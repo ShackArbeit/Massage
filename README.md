@@ -1,43 +1,24 @@
-# 按摩體驗回饋問卷系統
+# 按摩體驗回饋問卷
 
-中德雙語的按摩體驗回饋問卷。受試者在前台填寫、翻譯意見並手寫簽名；管理員在後台查看、列印資料，或匯出 CSV。
+我要申請德國／奧地利的 Ausbildung，需要真實的按摩體驗回饋，所以做了這個中德雙語問卷。
 
-- 正式網站：https://massage-37b8c.web.app
-- 正式後台：https://massage-37b8c.web.app/admin
-- 完整規格：`CLAUDE.md`
+被按摩的人用手機填問卷，把意見翻成德文，手寫簽名後送出。我再從後台把資料印成 A4，拿去公證。
 
-## 目錄
+- 問卷：https://massage-37b8c.web.app
+- 後台：https://massage-37b8c.web.app/admin
+- 詳細規格：`CLAUDE.md`
 
-1. [本機啟動](#本機啟動)
-2. [常用指令](#常用指令)
-3. [部署](#部署)
-4. [查看每次部署的變化](#查看每次部署的變化)
-5. [系統架構](#系統架構)
-6. [專案結構](#專案結構)
-7. [檔案之間的關係](#檔案之間的關係)
-8. [主要流程](#主要流程)
-9. [常見修改](#常見修改)
-10. [設定檔](#設定檔)
+## 用到的東西
 
----
+前端是 Vite、React 18、TypeScript 和 Tailwind，表單用 react-hook-form 加 zod，簽名用 signature_pad。
 
-## 本機啟動
+後端都在 Firebase 上：資料放 Firestore，後台用 Google 登入，網站放 Hosting。唯一的後端程式是翻譯用的 Cloud Function，它會去呼叫 Vertex AI 的 Gemini。App Check 用來擋不是從網站發出的請求。
 
-### 環境需求
+## 在自己電腦上跑起來
 
-- Node.js 22 以上
-- Java（JDK 21 以上，Firestore 模擬器需要）
-- 根目錄的 `.env.local`，以及 `functions/.env.local`
+需要 Node.js 22 以上，還有 Java（JDK 21 以上），因為 Firestore 模擬器要用。根目錄的 `.env.local` 和 `functions/.env.local` 也要先準備好，可以參考 `.env.example`。
 
-Firebase CLI 已裝在專案內，用 `npx firebase` 執行。第一次使用請先登入：
-
-```powershell
-npx firebase login
-```
-
-### 安裝套件
-
-第一次使用，或套件有變動時，在專案根目錄執行：
+第一次先裝套件：
 
 ```powershell
 npm install
@@ -45,459 +26,264 @@ npm --prefix web install
 npm --prefix functions install
 ```
 
-### 啟動
+Firebase CLI 已經裝在專案裡，不用另外裝，登入一次就好：
 
-需要開兩個終端機，都先切到專案根目錄 `C:\Users\user\Desktop\Massage`。
+```powershell
+npx firebase login
+```
 
-**終端機 1：模擬器**
+接著開兩個終端機，都切到專案根目錄。第一個跑模擬器：
 
 ```powershell
 npm run emulators
 ```
 
-看到 `All emulators ready!` 就表示啟動完成。如果找不到 `java`，先執行下面這行，或把 Java 加進永久 PATH：
+看到 `All emulators ready!` 就可以了。如果它說找不到 java，先跑這行再試一次：
 
 ```powershell
 $env:Path = "C:\Program Files\Java\latest\jdk-27.0.1.0.3\bin;" + $env:Path
 ```
 
-**終端機 2：前端**
+第二個跑前端：
 
 ```powershell
 npm run dev
 ```
 
-### 本機網址
+然後就能打開這些網址：
 
-| 用途 | 網址 |
-|---|---|
-| 問卷 | http://localhost:5173 |
-| 後台 | http://localhost:5173/admin |
-| 模擬器管理介面（查看資料） | http://localhost:4000 |
-| 手機測試（同一個 Wi-Fi） | `npm run dev` 顯示的 `Network` 網址 |
+- 問卷：http://localhost:5173
+- 後台：http://localhost:5173/admin
+- 模擬器的管理頁，可以看存進去的資料：http://localhost:4000
 
-手機連不上時，請確認 Windows 防火牆有允許連線。
+想用手機測的話，手機要跟電腦連同一個 Wi-Fi，開 `npm run dev` 印出來的 `Network` 網址。連不上通常是 Windows 防火牆擋住了。
 
-### 本機與正式環境的差異
+### 本機跟正式環境不一樣的地方
 
-| 項目 | 本機 | 正式環境 |
-|---|---|---|
-| 翻譯 | 模擬翻譯，回傳 `[DE-Test] 原文`，不產生費用 | Vertex AI Gemini |
-| 後台登入 | 模擬器的假登入視窗：按 Add new account，Email 填 `VITE_ADMIN_EMAIL` 的帳號 | 真正的 Google 登入 |
-| 資料 | 存在模擬器，關閉後消失 | 存在雲端 Firestore |
-| App Check | 不啟用 | 強制驗證 |
-
----
+- 翻譯是假的，只會回傳 `[DE-Test] 原文`。這樣測試不用花錢，看到這個不是壞掉。
+- 後台登入也是假的。跳出視窗後按 Add new account，Email 填 `.env.local` 裡的 `VITE_ADMIN_EMAIL`。
+- 資料只存在模擬器，關掉就沒了，不會動到正式資料。
+- 本機沒有開 App Check。
 
 ## 常用指令
 
 都在專案根目錄執行。
 
-| 指令 | 用途 |
-|---|---|
-| `npm run dev` | 啟動前端 |
-| `npm run emulators` | 產生 Rules、編譯函式並啟動模擬器 |
-| `npm run rules` | 由題庫重新產生 `firestore.rules` |
-| `npm run build` | 正式建置 |
-| `npm run deploy` | 部署全部（Rules、網站、翻譯函式） |
-| `npx firebase deploy --only hosting` | 只部署網站 |
-| `npx firebase deploy --only functions` | 只部署翻譯函式 |
-| `npx firebase functions:log --only translateToGerman` | 查看雲端翻譯函式記錄 |
+```powershell
+npm run dev                # 跑前端
+npm run emulators          # 跑模擬器，會順便產生 Rules、編譯函式
+npm run rules              # 從題庫重新產生 firestore.rules
+npm run build              # 正式建置
+npm run deploy             # 全部部署
 
----
+npx firebase deploy --only hosting            # 只部署網站
+npx firebase deploy --only functions          # 只部署翻譯函式
+npx firebase deploy --only firestore:rules    # 只部署 Rules，要先跑 npm run rules
+
+npx firebase functions:log --only translateToGerman    # 看雲端翻譯函式的記錄
+```
 
 ## 部署
 
-正式網站跑的是上次上傳到雲端的版本，修改電腦上的程式碼不會影響雲端，所以要部署才會上線。
+改完程式要部署才會上線，正式網站跑的是上次上傳的版本。
 
-### 網址與部署位置
+`npm run deploy` 不是 CI/CD，就是我自己在電腦上手動跑的指令，不會自動測試，也不會在 push 後自動觸發。它會先在電腦上產生 Rules、編譯函式、建置前端，再上傳到雲端。雲端收到後會發布 Rules 和新版網站，並用 Cloud Build 建置函式、部署到 Cloud Run。
 
-`massage-37b8c.web.app` 是 Firebase Hosting 依專案 ID 提供的預設網址，專案 ID 設定在 `.firebaserc`。
+只改一部分的話，不用全部重來：
 
-Firebase 專案本身就是一個 GCP 專案，所以兩邊看到的是同一個 `massage-37b8c`：
+- 只改畫面：`npx firebase deploy --only hosting`
+- 只改翻譯函式或 Gemini 型號：`npx firebase deploy --only functions`
+- 改了題目：用 `npm run deploy`，因為網站和 Rules 都要更新
 
-| 部分 | 使用的服務 | 實際運作位置 |
-|---|---|---|
-| 網站 | Firebase Hosting | Firebase 全球 CDN |
-| 資料庫 | Firestore | GCP `asia-east1` |
-| 翻譯函式 | Cloud Functions 2nd gen | GCP Cloud Run `asia-east1` |
-| 翻譯模型 | Vertex AI Gemini | GCP |
-| 後台登入 | Firebase Auth | Google 服務 |
-| 防濫用 | App Check + Fraud Defense | Firebase + GCP |
-
-### `npm run deploy` 做了什麼
-
-它不是 CI/CD，而是你手動執行的指令，不會自動觸發，也不會自動跑測試。
-
-**在你的電腦上：**
-
-1. 從題庫產生 `firestore.rules`。
-2. 編譯翻譯函式。
-3. 建置前端，輸出到 `web/dist`。
-4. 把結果上傳到雲端。
-
-**在 Google 雲端上：**
-
-1. 發布新的 Firestore Rules。
-2. 在 Hosting 發布新版網站。
-3. 用 Cloud Build 建置翻譯函式，再部署到 Cloud Run。
-
-### 只部署一部分
-
-| 改了什麼 | 指令 |
-|---|---|
-| 只改前端 | `npx firebase deploy --only hosting` |
-| 只改翻譯函式 | `npx firebase deploy --only functions` |
-| 改了題目（`questions.ts`） | `npm run deploy`，因為前端和 Rules 都要更新 |
-
-部署時如果出現 `Timeout after 10000`，改用：
+如果部署時出現 `Timeout after 10000`，可以放寬等待時間再跑一次：
 
 ```powershell
 $env:FUNCTIONS_DISCOVERY_TIMEOUT="60"; npm run deploy
 ```
 
----
+### 網址和部署位置
 
-## 查看每次部署的變化
+`massage-37b8c.web.app` 是 Firebase Hosting 給的預設網址，前面那段就是專案 ID。
 
-Firebase Console 沒有一個頁面能看完整次部署，要依部署內容分開看。
+Firebase 專案其實就是一個 GCP 專案，所以 Firebase Console 和 Google Cloud Console 看到的是同一個 `massage-37b8c`。網站在 Firebase Hosting；Firestore、翻譯函式和 Gemini 都跑在 GCP 上，資料庫和函式放在 `asia-east1`。
 
-| 想看什麼 | 位置 | 可以看到 |
-|---|---|---|
-| 網站 | [Hosting](https://console.firebase.google.com/project/massage-37b8c/hosting) → 版本記錄 | 部署時間、部署者、檔案數量，可回復舊版 |
-| Firestore Rules | [Firestore Rules](https://console.firebase.google.com/project/massage-37b8c/firestore/databases/-default-/rules) | 歷次版本與新舊內容差異 |
-| 翻譯函式 | [Functions](https://console.firebase.google.com/project/massage-37b8c/functions) | 目前版本、最後部署時間、執行記錄 |
-| 函式的版本與環境變數 | [Cloud Run](https://console.cloud.google.com/run?project=massage-37b8c) → `translatetogerman` → 修訂版本 | 每次部署的版本，以及目前的 Gemini 型號 |
-| 函式建置過程 | [Cloud Build](https://console.cloud.google.com/cloud-build/builds;region=asia-east1?project=massage-37b8c) | 建置成功或失敗，以及建置記錄 |
+### 部署完去哪裡看
 
-Console 看不到程式碼改了什麼。Hosting 只顯示上傳的成品，要比對程式碼請靠 git：部署前先 commit，之後用 `git log`、`git diff` 查看。
+Firebase Console 沒有一頁能看到整次部署的內容，要分開看：
 
----
+- 網站：[Hosting](https://console.firebase.google.com/project/massage-37b8c/hosting) 的版本記錄，有部署時間和檔案數，也能退回舊版。
+- Rules：[Firestore Rules](https://console.firebase.google.com/project/massage-37b8c/firestore/databases/-default-/rules) 能看歷史版本和前後差異。
+- 翻譯函式：[Functions](https://console.firebase.google.com/project/massage-37b8c/functions) 看最後部署時間和執行記錄。
+- 想看更細的函式資訊：[Cloud Run](https://console.cloud.google.com/run?project=massage-37b8c) 有每次的版本和環境變數，[Cloud Build](https://console.cloud.google.com/cloud-build/builds;region=asia-east1?project=massage-37b8c) 有建置記錄。
 
-## 系統架構
+這些地方都看不到程式碼改了什麼，那要看 git，所以部署前最好先 commit。
 
-```text
-受試者（手機／電腦）
-   │
-   ▼
-Firebase Hosting（React 網站）
-   │                        │
-   │ 翻譯                   │ 送出問卷（App Check + Firestore Rules）
-   ▼                        ▼
-Cloud Function             Firestore
-translateToGerman          submissions
-   │  App Check、            ▲
-   │  輸入檢查、頻率限制     │ 讀取／刪除（僅管理員）
-   ▼                        │
-Vertex AI Gemini           管理員 /admin
-                           Google 登入 → 列表 → 詳細 → 列印／CSV
-```
+## 專案怎麼分
 
-專案分成三層：
-
-| 層 | 資料夾 | 職責 |
-|---|---|---|
-| 問卷定義與資料邏輯 | `web/src/survey/` | 題目、條件、驗證、資料轉換，不含畫面 |
-| 前端畫面與服務連線 | `web/src/pages/`、`components/`、`lib/` | 畫面呈現，以及呼叫 Firebase |
-| 後端 | `functions/src/` | 只負責翻譯 |
-
-核心原則：**題目只定義在 `questions.ts`**。表單、驗證、後台、列印、CSV 和 Firestore Rules 都由它產生。
-
----
-
-## 專案結構
-
-### 根目錄
+整體流程長這樣：
 
 ```text
-├─ CLAUDE.md                 專案規格書
-├─ README.md                 本文件
-├─ message.md                部署問答
-├─ package.json              根目錄指令（dev、rules、emulators、deploy）
-├─ firebase.json             Firebase 部署與模擬器設定
-├─ .firebaserc               指定 Firebase 專案 ID
-├─ firestore.rules           自動產生的 Firestore 安全規則（不進版控）
-├─ firestore.indexes.json    Firestore 索引設定
-├─ .env.example              環境變數範本
-├─ functions/                後端
-└─ web/                      前端
+受試者
+  │
+  ▼
+網站（Firebase Hosting）
+  ├─ 按翻譯 ──► translateToGerman ──► Gemini
+  └─ 按送出 ──► Firestore 的 submissions
+                     ▲
+                     │ 只有我的帳號能讀
+                 後台 /admin
 ```
 
-### 後端 `functions/`
+資料夾大概是這樣：
 
 ```text
-functions/
-├─ .env                  部署用設定：翻譯服務、Gemini 型號
-├─ .env.local            本機設定：改用模擬翻譯
-├─ .env.example          設定範本
-├─ package.json          後端套件，指定 Node 22
-├─ tsconfig.json         TypeScript 設定
-└─ src/
-   ├─ index.ts           translateToGerman 入口：App Check、輸入檢查、錯誤處理
-   ├─ translate.ts       翻譯服務介面、Gemini 與模擬實作、翻譯指示
-   └─ rateLimit.ts       同一來源每小時 30 次的限制
+├─ CLAUDE.md                 規格書
+├─ README.md
+├─ package.json              根目錄指令
+├─ firebase.json             部署和模擬器設定
+├─ .firebaserc               Firebase 專案 ID
+├─ firestore.rules           自動產生，不要手改
+├─ firestore.indexes.json
+├─ functions/                翻譯函式
+└─ web/
+   ├─ scripts/build-rules.mjs   產生 firestore.rules
+   └─ src/
+      ├─ survey/             題目和資料處理，沒有畫面
+      ├─ lib/                跟 Firebase、瀏覽器打交道
+      ├─ pages/              頁面
+      ├─ components/         元件
+      └─ styles/print.css    A4 列印樣式
 ```
 
-### 前端 `web/`
+根目錄的 `answer.md` 是我的個人筆記，跟這個專案無關。
+
+### web/src/survey
+
+最重要的資料夾。所有題目都寫在 `questions.ts`，要改題目通常只改這個檔案。
+
+- `questions.ts`：題目、選項、中德文字，還有表單的預設值。
+- `conditions.ts`：決定哪些題目要顯示，例如沒填按摩前的不適程度，就不問按摩後的。被隱藏的題目，值也會清掉。
+- `schema.ts`：驗證規則和中德錯誤訊息，只檢查畫面上看得到的題目。
+- `submission.ts`：把表單內容轉成存進 Firestore 的格式。
+- `answers.ts`：反過來，把 Firestore 的資料轉成看得懂的文字，後台、列印、CSV 都用它。
+- `limits.ts`：簽名大小上限，產生 Rules 時會用到。
+
+### web/src/lib
+
+- `firebase.ts`：連上 Firebase，開啟 App Check，本機時改連模擬器。
+- `auth.ts`：Google 登入和判斷是不是管理員。
+- `translate.ts`：呼叫翻譯函式。失敗時會在瀏覽器 Console 印出原因。
+- `submit.ts`：把問卷寫進 Firestore。
+- `submissions.ts`：後台讀取和刪除資料。
+- `image.ts`：裁掉簽名四周的空白，再縮小壓縮。
+- `csv.ts`：匯出 CSV。
+- `draft.ts`：現在已經不存草稿了，只用來清掉舊版留在瀏覽器裡的資料。
+
+### web/src/pages
+
+- `SurveyPage.tsx`：問卷主頁（`/`），表單狀態和送出都在這裡。
+- `ThanksPage.tsx`：感謝頁（`/thanks`）。要送出成功才進得來，直接打網址會被導回問卷。
+- `AdminLayout.tsx`：後台的外框，負責檢查登入。
+- `AdminLogin.tsx`：登入畫面，帳號不對也會顯示在這裡。
+- `AdminList.tsx`：後台列表（`/admin`），有搜尋、排序、勾選、批次列印和匯出 CSV。
+- `AdminDetail.tsx`：單筆資料（`/admin/:id`），可以列印和刪除。
+
+### web/src/components
+
+`form/` 放問卷元件。先看 `QuestionField.tsx`，它會依題型挑對應的元件來顯示：
+
+- 外框和版面：`SectionCard`、`ProgressBar`、`SubmitBar`、`FieldShell`、`Reveal`
+- 輸入類：`TextInput`、`SingleChoice`、`MultiChoice`、`OptionCard`、`OtherInput`、`RatingScale`、`Slider0to10`、`Scale0to10`、`CheckboxField`
+- 比較特別的兩個：`TextAreaWithTranslate` 是意見欄和翻譯，`SignatureField` 是簽名區
+- 小零件：`BilingualLabel`、`ButtonLabel`、`ErrorText`、`inputStyles.ts`
+
+其他元件：
+
+- `SignatureModal.tsx`：手寫簽名的視窗。
+- `ConfirmDialog.tsx`：刪除前的確認視窗。
+- `PrivacyNote.tsx`：問卷最下面的隱私聲明。
+- `icons.tsx`：圖示。
+- `print/PrintSheet.tsx`：A4 列印版型。
+- `admin/`：後台專用，`SubmissionsContext` 讓列表和詳細頁共用同一份資料，另外還有 `AnswerView` 和 `RatingDots`。
+
+### functions/src
+
+- `index.ts`：翻譯函式的入口，檢查 App Check 和輸入。
+- `translate.ts`：呼叫 Gemini，翻譯指示也寫在這裡。本機用的假翻譯也在這。
+- `rateLimit.ts`：同一個來源每小時最多翻 30 次。只存 IP 的雜湊值，不存原始 IP。
+
+## 檔案之間怎麼串起來
+
+從 `questions.ts` 看起最容易懂，其他檔案幾乎都靠它：
 
 ```text
-web/
-├─ index.html                入口 HTML、載入字型
-├─ package.json              前端套件
-├─ vite.config.ts            Vite 設定，環境變數從根目錄讀取
-├─ tsconfig.json             TypeScript 設定
-├─ scripts/
-│  └─ build-rules.mjs        由題庫產生 firestore.rules
-└─ src/
-   ├─ main.tsx               前端入口，載入全域樣式與路由
-   ├─ App.tsx                路由表，後台頁面延遲載入
-   ├─ index.css              Tailwind 與全域樣式
-   ├─ vite-env.d.ts          環境變數型別
-   ├─ styles/print.css       A4 列印樣式
-   ├─ survey/                問卷定義與資料邏輯
-   ├─ lib/                   Firebase 與瀏覽器功能
-   ├─ pages/                 頁面
-   └─ components/            元件
+                      questions.ts
+                           │
+    ┌──────────┬───────────┼───────────┬──────────────┐
+    ▼          ▼           ▼           ▼              ▼
+conditions  schema    submission    answers     build-rules.mjs
+    │          │           │           │              │
+SurveyPage  SurveyPage  submit.ts   後台、列印、CSV  firestore.rules
 ```
 
-### `web/src/survey/`：問卷定義與資料邏輯
-
-| 檔案 | 職責 |
-|---|---|
-| `questions.ts` | ★ 題庫：區塊、題目、選項、中德文字，以及表單值型別與預設值 |
-| `conditions.ts` | 條件顯示、清除隱藏題的殘留值、送出前移除隱藏題 |
-| `schema.ts` | 由題庫產生 zod 驗證，含中德錯誤訊息 |
-| `submission.ts` | Firestore 文件型別；表單值 → Firestore 文件 |
-| `answers.ts` | Firestore 文件 → 顯示用答案，後台、列印、CSV 共用 |
-| `limits.ts` | 簽名長度上限，供 Rules 產生器使用 |
-
-### `web/src/lib/`：服務連線
-
-| 檔案 | 職責 |
-|---|---|
-| `firebase.ts` | 初始化 Firebase、App Check，並連接模擬器 |
-| `auth.ts` | Google 登入、管理員判斷 |
-| `translate.ts` | 呼叫翻譯函式、錯誤訊息、Console 診斷 |
-| `submit.ts` | 把問卷寫入 Firestore |
-| `submissions.ts` | 後台讀取與刪除資料 |
-| `image.ts` | 簽名裁切、縮放、壓縮 |
-| `csv.ts` | 產生並下載 CSV |
-| `draft.ts` | 清除舊版留在瀏覽器的草稿，現在不再保存草稿 |
-
-### `web/src/pages/`：頁面
-
-| 檔案 | 路徑 | 職責 |
-|---|---|---|
-| `SurveyPage.tsx` | `/` | 問卷主頁：表單狀態、題號、進度、送出 |
-| `ThanksPage.tsx` | `/thanks` | 感謝頁 |
-| `AdminLayout.tsx` | `/admin/*` | 後台守門、頁首、提供共用資料 |
-| `AdminLogin.tsx` | 由 `AdminLayout` 顯示 | 登入與無權限畫面 |
-| `AdminList.tsx` | `/admin` | 列表、搜尋、排序、勾選、批次列印、CSV |
-| `AdminDetail.tsx` | `/admin/:id` | 詳細資料、單筆列印、刪除 |
-
-### `web/src/components/`：元件
-
-**問卷版面（`form/`）**
-
-| 檔案 | 職責 |
-|---|---|
-| `SectionCard.tsx` | A～F 區塊卡片，含 B 區收合與略過 |
-| `ProgressBar.tsx` | 頂部進度條 |
-| `SubmitBar.tsx` | 底部送出列與缺漏清單 |
-| `QuestionField.tsx` | ★ 依題型分派到對應元件，並連接表單狀態 |
-| `FieldShell.tsx` | 題目外框：題號、標籤、必填記號、錯誤訊息 |
-| `Reveal.tsx` | 條件題的展開動畫 |
-
-**問卷輸入（`form/`）**
-
-| 檔案 | 用於 |
-|---|---|
-| `TextInput.tsx` | 文字、數字、Email、日期 |
-| `SingleChoice.tsx` | 單選 |
-| `MultiChoice.tsx` | 複選，含互斥選項 |
-| `OptionCard.tsx` | 單選與複選共用的選項卡 |
-| `OtherInput.tsx` | 「其他」文字欄 |
-| `RatingScale.tsx` | 1–5 評分 |
-| `Slider0to10.tsx` | 0–10 滑桿 |
-| `Scale0to10.tsx` | 0–10 推薦度量表 |
-| `TextAreaWithTranslate.tsx` | 意見欄、翻譯按鈕、德文預覽 |
-| `CheckboxField.tsx` | 聲明勾選 |
-| `SignatureField.tsx` | 簽名區塊與縮圖 |
-
-**共用小元件（`form/`）：** `BilingualLabel.tsx`（中德並列文字）、`ButtonLabel.tsx`（按鈕文字）、`ErrorText.tsx`（錯誤訊息）、`inputStyles.ts`（輸入框樣式）
-
-**其他元件**
-
-| 檔案 | 職責 |
-|---|---|
-| `SignatureModal.tsx` | 手寫簽名視窗 |
-| `ConfirmDialog.tsx` | 刪除確認視窗 |
-| `PrivacyNote.tsx` | 問卷頁尾隱私聲明 |
-| `icons.tsx` | 圖示與載入動畫 |
-| `print/PrintSheet.tsx` | 單筆 A4 列印版型 |
-| `admin/SubmissionsContext.tsx` | 後台共用資料：載入、重新載入、刪除 |
-| `admin/AnswerView.tsx` | 詳細頁的答案呈現 |
-| `admin/RatingDots.tsx` | 評分圓點 |
-
----
-
-## 檔案之間的關係
-
-### `questions.ts` 是資料的起點
+同一筆資料會經過三種樣子：
 
 ```text
-                         questions.ts
-                              │
-     ┌──────────┬─────────────┼──────────────┬───────────────┐
-     ▼          ▼             ▼              ▼               ▼
-conditions.ts  schema.ts   submission.ts   answers.ts   build-rules.mjs
- 條件顯示       驗證規則    表單→資料庫     資料庫→顯示    產生 Rules
-     │          │             │              │               │
-     ▼          ▼             ▼              ▼               ▼
- SurveyPage   SurveyPage    submit.ts     AdminDetail    firestore.rules
-                                          PrintSheet
-                                          AdminList
-                                          csv.ts
+填寫中                 存進 Firestore            顯示出來
+ratingOverall: 5  ──►  ratings.overall: 5  ──►  ●●●●● 非常滿意 sehr gut
+age: "34"              age: 34                  34
+       submission.ts              answers.ts
 ```
 
-### 資料的三種形式
-
-同一份問卷在系統裡有三種形式，由兩個檔案負責轉換：
+問卷頁的元件是這樣一層層包起來的：
 
 ```text
-表單值 FormValues           Firestore 文件 Submission       顯示用答案 Answer
-（填寫中）                  （儲存）                        （後台、列印、CSV）
-
-ratingOverall: 5     ──►    ratings.overall: 5       ──►    ●●●●● 5 非常滿意 sehr gut
-gender: "female"            gender: "female"                女 weiblich
-age: "34"（字串）           age: 34（數字）                 34
-signature: "..."            signaturePng: "..."             簽名圖片
-              submission.ts                  answers.ts
+SurveyPage
+├─ ProgressBar
+├─ SectionCard（A～F 每區一張）
+│  └─ QuestionField
+│     └─ FieldShell ＋ 各題型元件
+├─ SubmitBar
+└─ PrivacyNote
 ```
 
-### 頁面與元件
+後台則是先過 `AdminLayout` 這關。沒登入就顯示 `AdminLogin`，登入後才進到 `AdminList` 或 `AdminDetail`，資料由 `SubmissionsContext` 載入一次後共用。
 
-**問卷前台**
+### 實際操作時發生什麼
 
-```text
-main.tsx → App.tsx → SurveyPage
-                       ├─ ProgressBar
-                       ├─ SectionCard（A～F）
-                       │    └─ Reveal → QuestionField
-                       │                  └─ FieldShell → 各題型元件
-                       │                       ├─ OtherInput
-                       │                       ├─ TextAreaWithTranslate → lib/translate.ts
-                       │                       └─ SignatureField → SignatureModal → lib/image.ts
-                       ├─ SubmitBar
-                       └─ PrivacyNote
-```
+翻譯：按下按鈕後，`TextAreaWithTranslate` 透過 `lib/translate.ts` 呼叫雲端函式。函式依序檢查 App Check、輸入內容和次數限制，再請 Gemini 翻譯，德文回來後放進可以修改的預覽框。如果之後又改了中文，德文會變成過期，要重新翻譯才能送出。
 
-**管理後台**
+送出：先由 `schema.ts` 檢查，沒過就捲到第一個錯誤。通過後 `submission.ts` 整理資料，`submit.ts` 寫進 Firestore，Firestore Rules 再檢查一次，都過了才進感謝頁。
 
-```text
-App.tsx → AdminLayout ── 未登入 ──► AdminLogin
-             │ 管理員
-             ▼
-       SubmissionsProvider（只載入一次資料）
-             ├─ AdminList ── RatingDots、PrintSheet、lib/csv.ts
-             └─ AdminDetail ── AnswerView、PrintSheet、ConfirmDialog
-```
+列印：`PrintSheet` 平常藏著，列印時才出現，再套用 `print.css`。
 
-### 設定如何進入程式
+重新整理問卷頁，所有欄位都會清空，填寫內容不會存在瀏覽器裡。
 
-```text
-.env.local ─────────────┬─► firebase.ts、auth.ts、PrivacyNote（前端）
-.env.production.local ──┘
-.env.local（管理員 email）─► build-rules.mjs ─► firestore.rules
+## 想改東西時
 
-functions/.env ─────────► functions/src/index.ts（部署）
-functions/.env.local ───► functions/src/index.ts（僅模擬器覆寫）
-```
+- 改題目或選項：`web/src/survey/questions.ts`，然後 `npm run deploy`。
+- 改顯示條件：`web/src/survey/conditions.ts`，然後 `npm run deploy`。
+- 改錯誤訊息：`web/src/survey/schema.ts`，部署網站。
+- 改翻譯語氣：`functions/src/translate.ts`，部署函式。
+- 換 Gemini 型號：`functions/.env`，部署函式。
+- 改翻譯次數上限：`functions/src/index.ts`，部署函式。
+- 改列印版面：`PrintSheet.tsx` 和 `styles/print.css`，部署網站。
+- 改隱私聲明：`web/src/components/PrivacyNote.tsx`，部署網站。
 
----
+幾件要小心的事：
 
-## 主要流程
-
-### 填寫與驗證
-
-1. `SurveyPage` 建立表單，預設值來自 `questions.ts`。
-2. 每次輸入後，`conditions.ts` 判斷要顯示哪些題目，並清除被隱藏題目的值。
-3. 按送出時，`schema.ts` 只驗證顯示中的題目。
-4. 驗證失敗時，畫面捲到第一個錯誤，`SubmitBar` 列出缺漏項目。
-
-重新整理頁面後，所有欄位都會清空。
-
-### 翻譯
-
-```text
-TextAreaWithTranslate → lib/translate.ts
-  → translateToGerman（functions/src/index.ts）
-      1. App Check（正式環境）
-      2. 檢查輸入
-      3. rateLimit.ts 檢查次數
-      4. translate.ts 呼叫 Gemini（本機為模擬翻譯）
-  → 德文顯示在可修改的預覽框
-```
-
-中文在翻譯後被修改時，德文會標記為過期，重新翻譯才能送出。
-
-### 簽名與送出
-
-```text
-SignatureField → SignatureModal → lib/image.ts（裁切、縮放、壓縮）
-SurveyPage → lib/submit.ts → survey/submission.ts（移除隱藏題、轉換格式）
-  → Firestore（Rules 檢查欄位、型別、長度）→ ThanksPage
-```
-
-### 後台與列印
-
-1. `AdminLayout` 透過 `lib/auth.ts` 確認是管理員帳號。
-2. `SubmissionsContext` 透過 `lib/submissions.ts` 載入資料，Rules 也會再次檢查管理員身分。
-3. `AdminList` 負責搜尋、排序和勾選，`AdminDetail` 顯示單筆資料。
-4. `PrintSheet` 平常隱藏，列印時才顯示，並套用 `styles/print.css`。
-5. `lib/csv.ts` 依題庫產生欄位，並防範試算表公式注入。
-
-### 安全機制
-
-| 位置 | 保護內容 |
-|---|---|
-| `firestore.rules` | 寫入的資料格式；只有管理員能讀取、修改、刪除 |
-| App Check | 只接受來自真實網站的請求 |
-| `functions/src/index.ts` | 輸入檢查；不記錄受試者內容 |
-| `functions/src/rateLimit.ts` | 限制翻譯次數，只存 IP 雜湊值 |
-| `lib/auth.ts` | 前端的管理員判斷；真正的權限由 Rules 決定 |
-
----
-
-## 常見修改
-
-| 想做的事 | 要改的檔案 | 之後要做 |
-|---|---|---|
-| 新增或修改題目、選項 | `web/src/survey/questions.ts` | `npm run deploy` |
-| 修改條件顯示 | `web/src/survey/conditions.ts` | `npm run deploy` |
-| 修改驗證或錯誤訊息 | `web/src/survey/schema.ts` | 部署網站 |
-| 修改翻譯語氣 | `functions/src/translate.ts` | 部署函式 |
-| 更換 Gemini 型號 | `functions/.env` | 部署函式 |
-| 修改翻譯次數限制 | `functions/src/index.ts` | 部署函式 |
-| 修改列印版型 | `PrintSheet.tsx`、`styles/print.css` | 部署網站 |
-| 修改隱私聲明 | `web/src/components/PrivacyNote.tsx` | 部署網站 |
-
-新增題目時，每個題目和選項都要有中文與德文，並維持 `key` 與選項代碼穩定，已存資料是靠它們對照文字。新增新的資料欄位型別時，也要同步調整 `submission.ts`、`answers.ts` 和 `build-rules.mjs`。
-
-`firestore.rules` 是自動產生的檔案，請不要手動修改。
-
----
+- 每個題目和選項都要同時有中文和德文。
+- 已經有資料之後，不要改題目的 `key` 和選項代碼，舊資料是靠它們對回文字的。
+- 不要手改 `firestore.rules`，下次產生時會被蓋掉。要改就改 `web/scripts/build-rules.mjs`。
+- Firestore Rules 有運算量上限，資料填得越滿，檢查越多。我就遇過 B 區全填再加上意見時，送出被拒絕。目前的餘裕不大，所以新增題目後，一定要把問卷全部填滿送一次看看。
+- 新增全新的題型時，`questions.ts` 不夠，`submission.ts`、`answers.ts` 和 `build-rules.mjs` 也要一起改。
 
 ## 設定檔
 
-| 檔案 | 用途 | 進版控 |
-|---|---|---|
-| `.env.local` | Firebase 設定、管理員 email、App Check 金鑰 | 否 |
-| `.env.production.local` | 正式建置時關閉模擬器 | 否 |
-| `.env.example` | 環境變數範本 | 是 |
-| `firestore.rules` | 自動產生，內含管理員 email | 否 |
-| `functions/.env` | 翻譯服務與模型設定 | 是 |
-| `functions/.env.local` | 本機改用模擬翻譯 | 否 |
-| `functions/.env.example` | 函式設定範本 | 是 |
+- `.env.local`：Firebase 設定、管理員 email、App Check 金鑰。不進 git。
+- `.env.production.local`：正式建置時關掉模擬器。不進 git。
+- `functions/.env`：Gemini 型號等設定，不是機密，會進 git。
+- `functions/.env.local`：讓本機用假翻譯。不進 git。
+- `firestore.rules`：自動產生，裡面有管理員 email。不進 git。
 
-請勿把金鑰、受試者個資或簽名圖提交到版本控制。
+金鑰、受試者個資和簽名圖都不要 commit。

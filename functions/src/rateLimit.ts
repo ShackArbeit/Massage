@@ -3,8 +3,7 @@ import { getFirestore, Timestamp } from "firebase-admin/firestore";
 
 const WINDOW_MS = 60 * 60 * 1000;
 
-// 固定時間窗計數：同一來源每小時最多 limit 次。
-// 只存來源的雜湊值，不存原始 IP。集合由 Rules 對用戶端全部拒絕。
+
 export async function consumeRateLimit(source: string, limit: number): Promise<boolean> {
   const id = createHash("sha256").update(source).digest("hex").slice(0, 32);
   const ref = getFirestore().collection("rateLimits").doc(id);

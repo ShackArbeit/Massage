@@ -21,11 +21,11 @@ const { allQuestions, OTHER_MAX_LENGTH, otherKeyOf } = await server.ssrLoadModul
 const { SIGNATURE_RULES_MAX_LENGTH } = await server.ssrLoadModule("/src/survey/limits.ts");
 await server.close();
 
-const list = (items) => `[${items.map((s) => `'${s}'`).join(", ")}]`;
+// 清單以單一字串 split 表示：逐項列出的字面值會計入 Rules 的求值量
+const list = (items) => `'${items.join(",")}'.split(',')`;
 const optional = (key, cond) => `(!('${key}' in d) || ${cond})`;
 
 const fields = ["schemaVersion", "createdAt"];
-const required = ["schemaVersion", "createdAt"];
 const checks = [];
 const ratingKeys = [];
 const requiredRatingKeys = [];
@@ -54,7 +54,7 @@ for (const q of allQuestions) {
       break;
     case "multi": {
       const codes = q.options.map((o) => o.code);
-      cond = `(d.${k} is list && d.${k}.size() >= 1 && d.${k}.size() <= ${codes.length} && ${list(codes)}.hasAll(d.${k}))`;
+      cond = `(d.${k} is list && d.${k}.size() <= ${codes.length} && ${list(codes)}.hasAll(d.${k}))`;
       break;
     }
     case "slider":
@@ -66,7 +66,6 @@ for (const q of allQuestions) {
       break;
     case "signature":
       fields.push("signaturePng");
-      required.push("signaturePng");
       checks.push(
         `isStr(d.signaturePng, 100, ${SIGNATURE_RULES_MAX_LENGTH}) && d.signaturePng.matches('data:image/png;base64,[A-Za-z0-9+/=]+')`,
       );
@@ -86,7 +85,6 @@ for (const q of allQuestions) {
   if (cond) {
     fields.push(k);
     if (q.required) {
-      required.push(k);
       checks.push(cond);
     } else {
       checks.push(optional(k, cond));
@@ -101,20 +99,26 @@ for (const q of allQuestions) {
 
 if (ratingKeys.length) {
   fields.push("ratings");
-  required.push("ratings");
-  checks.push(
-    `d.ratings is map && d.ratings.keys().hasOnly(${list(ratingKeys)}) && d.ratings.keys().hasAll(${list(requiredRatingKeys)})`,
-    ...ratingKeys.map((r) => `(!('${r}' in d.ratings) || intIn(d.ratings.${r}, 1, 5))`),
-  );
+  const keyCheck =
+    requiredRatingKeys.length === ratingKeys.length
+      ? `d.ratings.size() == ${ratingKeys.length} && d.ratings.keys().hasAll(${list(ratingKeys)})`
+      : `d.ratings.keys().hasOnly(${list(ratingKeys)}) && d.ratings.keys().hasAll(${list(requiredRatingKeys)})`;
+  checks.push(`d.ratings is map && ${keyCheck} && d.ratings.values().hasOnly([1, 2, 3, 4, 5])`);
 }
 if (commentKeys.length) {
   fields.push("comments");
-  required.push("comments");
   checks.push(
-    `d.comments is map && d.comments.keys().hasOnly(${list(commentKeys)}) && d.comments.keys().hasAll(${list(requiredCommentKeys)})`,
-    ...commentKeys.map((c) => `(!('${c}' in d.comments) || validComment(d.comments.${c}))`),
+    `d.comments is map && d.comments.keys().hasOnly(${list(commentKeys)})`,
+    ...commentKeys.map((c) =>
+      requiredCommentKeys.includes(c) ? `validComment(d.comments.${c})` : `(!('${c}' in d.comments) || validComment(d.comments.${c}))`,
+    ),
   );
 }
+
+// 把長條件分組成小函式，避免單一 && 串過長而超過 Rules 的求值限制
+const GROUP_SIZE = 8;
+const checkGroups = [];
+for (let i = 0; i < checks.length; i += GROUP_SIZE) checkGroups.push(checks.slice(i, i + GROUP_SIZE));
 
 const rules = `rules_version = '2';
 
@@ -139,19 +143,21 @@ service cloud.firestore {
 
     function validComment(c) {
       return c is map
-        && c.keys().hasOnly(['zh', 'de', 'deEditedByUser'])
+        && c.size() == 3
         && c.keys().hasAll(['zh', 'de', 'deEditedByUser'])
         && isStr(c.zh, 1, ${commentMax})
         && isStr(c.de, 1, ${commentMax * 3})
         && c.deEditedByUser is bool;
     }
 
+${checkGroups.map((g, i) => `    function checks${i}(d) {\n      return ${g.join("\n        && ")};\n    }`).join("\n\n")}
+
     function validSubmission(d) {
+      // Rules 單次請求的運算量有上限：必填欄位缺漏時，讀取欄位就會失敗而拒絕，不需要再寫 hasAll
       return d.keys().hasOnly(${list(fields)})
-        && d.keys().hasAll(${list(required)})
         && d.schemaVersion == 1
         && d.createdAt == request.time
-        && ${checks.join("\n        && ")};
+        && ${checkGroups.map((_, i) => `checks${i}(d)`).join("\n        && ")};
     }
 
     match /submissions/{id} {

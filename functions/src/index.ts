@@ -55,7 +55,7 @@ function sourceOf(req: CallableRequest): string {
 
 export const translateToGerman = onCall(
   {
-    enforceAppCheck: !isEmulator, // 模擬器不驗證 App Check
+    enforceAppCheck: !isEmulator, 
     timeoutSeconds: 30,
     memory: "256MiB",
   },
@@ -69,10 +69,10 @@ export const translateToGerman = onCall(
     try {
       return { items: await getProvider().translate(items) };
     } catch (e) {
-      // 不記錄使用者內容，只記錄錯誤類型與訊息（LLM／權限錯誤訊息不含使用者文字）
+
       const reason = e instanceof Error ? `${e.name}: ${e.message}` : "unknown";
       logger.error("translation failed", { itemCount: items.length, provider: PROVIDER.value(), reason });
-      // 模擬器才把原因回傳給前端，方便在瀏覽器 Console 排查
+      
       throw new HttpsError("internal", "翻譯失敗 / Übersetzung fehlgeschlagen.", isEmulator ? { reason } : undefined);
     }
   },
