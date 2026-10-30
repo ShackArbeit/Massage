@@ -6,9 +6,12 @@ import BilingualLabel from "../components/form/BilingualLabel";
 import ButtonLabel from "../components/form/ButtonLabel";
 import { inputClass } from "../components/form/inputStyles";
 import { Spinner } from "../components/icons";
+import PrintSheet from "../components/print/PrintSheet";
+import { downloadCsv } from "../lib/csv";
 import type { StoredSubmission } from "../lib/submissions";
 import { formatTimestamp, optionText } from "../survey/answers";
 import { findQuestion, type Bi } from "../survey/questions";
+import { todayISO } from "../survey/schema";
 
 type SortKey = "createdDesc" | "createdAsc" | "dateDesc" | "dateAsc" | "ratingDesc" | "ratingAsc";
 
@@ -33,19 +36,53 @@ export default function AdminList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("createdDesc");
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
 
   const items = state.status === "ready" ? state.items : [];
+  const sorted = useMemo(() => {
+    const compare = SORTS.find((s) => s.key === sort)?.compare;
+    return compare ? [...items].sort(compare) : items;
+  }, [items, sort]);
   const shown = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const filtered = term
-      ? items.filter((s) => s.name.toLowerCase().includes(term) || s.email.toLowerCase().includes(term))
-      : items;
-    const compare = SORTS.find((s) => s.key === sort)?.compare;
-    return compare ? [...filtered].sort(compare) : filtered;
-  }, [items, search, sort]);
+    return term
+      ? sorted.filter((s) => s.name.toLowerCase().includes(term) || s.email.toLowerCase().includes(term))
+      : sorted;
+  }, [sorted, search]);
+  // 依目前排序；搜尋條件改變時，已勾選但未顯示的項目仍保留
+  const selectedItems = useMemo(() => sorted.filter((s) => selected.has(s.id)), [sorted, selected]);
+  const allShownSelected = shown.length > 0 && shown.every((s) => selected.has(s.id));
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllShown() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const s of shown) {
+        if (allShownSelected) next.delete(s.id);
+        else next.add(s.id);
+      }
+      return next;
+    });
+  }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
+    <main className="mx-auto max-w-6xl px-4 py-6 print:max-w-none print:p-0">
+      {/* 批次列印：只印勾選的資料，每筆從新的一頁開始 */}
+      {selectedItems.length > 0 && (
+        <div className="hidden print:block">
+          {selectedItems.map((s) => (
+            <PrintSheet key={s.id} sub={s} printDate={todayISO()} />
+          ))}
+        </div>
+      )}
+      <div className={selectedItems.length > 0 ? "print:hidden" : ""}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h1>
           <BilingualLabel text={{ zh: "回饋列表", de: "Übersicht der Rückmeldungen" }} size="lg" />
@@ -91,6 +128,37 @@ export default function AdminList() {
         </label>
       </div>
 
+      {state.status === "ready" && items.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm text-stone-700 hover:bg-stone-100">
+            <input type="checkbox" checked={allShownSelected} onChange={toggleAllShown} className="size-5 accent-teal-600" />
+            全選 <span className="text-xs text-stone-500">Alle auswählen</span>
+          </label>
+          <span className="text-sm text-stone-600" aria-live="polite">
+            已選 <span className="font-semibold tabular-nums">{selectedItems.length}</span> 筆
+            <span className="ml-1 text-xs text-stone-500">· {selectedItems.length} ausgewählt</span>
+          </span>
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              disabled={selectedItems.length === 0}
+              className="min-h-11 rounded-xl bg-teal-600 px-4 text-sm font-medium text-white shadow-sm hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-stone-300"
+            >
+              <ButtonLabel text={{ zh: "列印所選", de: "Auswahl drucken" }} />
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadCsv(selectedItems, `massage-feedback-${todayISO()}.csv`)}
+              disabled={selectedItems.length === 0}
+              className="min-h-11 rounded-xl border border-teal-600 bg-white px-4 text-sm font-medium text-teal-700 hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-stone-300 disabled:text-stone-400"
+            >
+              <ButtonLabel text={{ zh: "匯出 CSV", de: "CSV exportieren" }} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {state.status === "loading" && (
         <p className="mt-10 flex items-center justify-center gap-2 text-stone-500">
           <Spinner className="size-5" /> 載入中 <span className="text-sm">· Wird geladen …</span>
@@ -121,6 +189,9 @@ export default function AdminList() {
             <table className="w-full text-left text-sm">
               <thead className="bg-stone-50 text-xs text-stone-600">
                 <tr>
+                  <th scope="col" className="w-12 px-4 py-3">
+                    <span className="sr-only">選取 Auswahl</span>
+                  </th>
                   {[
                     ["提交時間", "Eingang"],
                     ["姓名", "Name"],
@@ -139,6 +210,17 @@ export default function AdminList() {
               <tbody className="divide-y divide-stone-100">
                 {shown.map((s) => (
                   <tr key={s.id} onClick={() => navigate(`/admin/${s.id}`)} className="cursor-pointer hover:bg-teal-50/50">
+                    <td className="p-0" onClick={(e) => e.stopPropagation()}>
+                      <label className="flex min-h-11 cursor-pointer items-center justify-center px-4">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(s.id)}
+                          onChange={() => toggle(s.id)}
+                          aria-label={`選取 Auswählen: ${s.name}`}
+                          className="size-5 accent-teal-600"
+                        />
+                      </label>
+                    </td>
                     <td className="px-4 py-3 tabular-nums text-stone-600">{formatTimestamp(s.createdAt)}</td>
                     <td className="px-4 py-3">
                       <Link to={`/admin/${s.id}`} className="font-medium text-stone-900 hover:underline" onClick={(e) => e.stopPropagation()}>
@@ -168,8 +250,17 @@ export default function AdminList() {
           {/* 手機：卡片 */}
           <ul className="mt-5 space-y-3 md:hidden">
             {shown.map((s) => (
-              <li key={s.id}>
-                <Link to={`/admin/${s.id}`} className="block rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 active:bg-teal-50">
+              <li key={s.id} className="flex items-start gap-1">
+                <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(s.id)}
+                    onChange={() => toggle(s.id)}
+                    aria-label={`選取 Auswählen: ${s.name}`}
+                    className="size-5 accent-teal-600"
+                  />
+                </label>
+                <Link to={`/admin/${s.id}`} className="block min-w-0 flex-1 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200 active:bg-teal-50">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium text-stone-900">{s.name}</p>
@@ -201,6 +292,7 @@ export default function AdminList() {
           </ul>
         </>
       )}
+      </div>
     </main>
   );
 }
