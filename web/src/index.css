@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  /* 德文與數字用 Inter，中文 fallback 到 Noto Sans TC */
+  --font-sans: "Inter", "Noto Sans TC", system-ui, -apple-system, "Segoe UI", "Microsoft JhengHei", sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-stone-50 text-stone-800 antialiased leading-relaxed;
+  }
+}

@@ -1,0 +1,200 @@
+/* 列印版型：A4 直式。螢幕畫面以 Tailwind 的 print:hidden 隱藏，PrintSheet 只在列印時出現。 */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 15mm 16mm 18mm;
+
+    @bottom-right {
+      content: "Seite " counter(page) " / " counter(pages);
+      font: 7.5pt Inter, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      color: #333;
+    }
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+}
+
+.ps {
+  font-family: Inter, "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+  font-size: 9pt;
+  line-height: 1.4;
+  color: #000;
+}
+
+/* 批次列印：每筆從新的一頁開始 */
+.ps + .ps {
+  break-before: page;
+}
+
+.ps-sub {
+  display: block;
+  font-size: 7pt;
+  color: #444;
+  font-weight: 400;
+}
+
+/* 標題列 */
+.ps-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 6mm;
+  border-bottom: 1.5pt solid #000;
+  padding-bottom: 2mm;
+}
+.ps-head h1 {
+  font-size: 15pt;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.ps-head h1 .ps-de {
+  display: block;
+  font-size: 10pt;
+  font-weight: 500;
+}
+.ps-meta {
+  text-align: right;
+  font-size: 8.5pt;
+}
+.ps-meta dt {
+  display: inline;
+  color: #444;
+}
+.ps-meta dd {
+  display: inline;
+  margin-left: 1.5mm;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 區塊 */
+.ps-section {
+  margin-top: 3.5mm;
+}
+.ps-section h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  margin-bottom: 1.5mm;
+  font-size: 10pt;
+  font-weight: 700;
+  break-after: avoid;
+}
+.ps-letter {
+  border: 1pt solid #000;
+  padding: 0 1.4mm;
+  font-size: 9pt;
+}
+.ps-section h2 .ps-de {
+  font-size: 8.5pt;
+  font-weight: 500;
+  color: #333;
+}
+
+/* 兩欄格線（基本資料等） */
+.ps-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 0.5pt solid #000;
+  border-left: 0.5pt solid #000;
+}
+.ps-cell {
+  display: grid;
+  grid-template-columns: 34mm 1fr;
+  border-right: 0.5pt solid #000;
+  border-bottom: 0.5pt solid #000;
+  break-inside: avoid;
+}
+.ps-cell > div {
+  padding: 1mm 1.6mm;
+}
+.ps-cell > div:first-child {
+  border-right: 0.5pt solid #999;
+}
+
+/* 評分表 */
+.ps-ratings {
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 0.5pt solid #000;
+}
+.ps-ratings td {
+  padding: 0.9mm 1.6mm;
+  border-bottom: 0.5pt solid #999;
+  vertical-align: middle;
+  break-inside: avoid;
+}
+.ps-ratings tr:last-child td {
+  border-bottom-color: #000;
+}
+.ps-dots {
+  white-space: nowrap;
+  font-size: 10.5pt;
+  letter-spacing: 0.6mm;
+}
+.ps-score {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 開放式意見：德文在上、中文原文在下 */
+.ps-comment {
+  border: 0.5pt solid #000;
+  padding: 2mm 2.4mm;
+  margin-bottom: 2mm;
+  break-inside: avoid;
+}
+.ps-comment-q {
+  font-weight: 600;
+  margin-bottom: 1mm;
+}
+.ps-comment-de {
+  font-size: 9.5pt;
+  white-space: pre-wrap;
+}
+.ps-comment-zh {
+  margin-top: 1.5mm;
+  padding-top: 1.5mm;
+  border-top: 0.5pt dashed #999;
+  font-size: 8pt;
+  color: #444;
+  white-space: pre-wrap;
+}
+
+/* 聲明與簽名 */
+.ps-checks li {
+  display: flex;
+  gap: 2mm;
+  margin-bottom: 1.2mm;
+  break-inside: avoid;
+}
+.ps-box {
+  flex-shrink: 0;
+  font-size: 11pt;
+  line-height: 1.1;
+}
+.ps-sign {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 8mm;
+  margin-top: 3mm;
+  break-inside: avoid;
+}
+.ps-sign-line {
+  min-width: 70mm;
+  border-bottom: 0.75pt solid #000;
+  padding-bottom: 1mm;
+}
+.ps-sign-line img {
+  display: block;
+  max-height: 22mm;
+  max-width: 80mm;
+}
+.ps-sign-label {
+  margin-top: 1mm;
+  font-size: 8pt;
+}

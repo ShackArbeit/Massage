@@ -1,0 +1,28 @@
+node_modules/
+dist/
+functions/lib/
+
+# 環境變數與金鑰：絕不進版控
+.env
+.env.*
+!.env.example
+# Functions 的非機密設定（模型名稱等）
+!functions/.env
+*.local
+service-account*.json
+
+# Firebase（rules 由 npm run rules 產生，內含管理員 email）
+firestore.rules
+.firebase/
+firebase-debug*.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+emulator-data/
+
+# 受試者資料匯出
+*.csv
+exports/
+
+.DS_Store
+Thumbs.db

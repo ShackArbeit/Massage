@@ -1,0 +1,14 @@
+{
+  "name": "massage-feedback",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "rules": "node web/scripts/build-rules.mjs",
+    "build": "npm run rules && npm --prefix web run build && npm --prefix functions run build",
+    "emulators": "npm run rules && npm --prefix functions run build && firebase emulators:start",
+    "deploy": "npm run rules && firebase deploy"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.34.2"
+  }
+}
