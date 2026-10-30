@@ -15,7 +15,7 @@
 | 4 | 翻譯 Cloud Function（Gemini）、德文預覽／編輯、過期標記 | ✅ 完成（本機用模擬翻譯驗證） |
 | 5 | 後台：Google 登入守門、列表、詳細頁、刪除 | ✅ 完成 |
 | 6 | 列印版型（A4、頁尾編號與頁碼） | ✅ 完成（已用 Edge 產生 PDF 驗證） |
-| 7 | 安全與部署 | 🟡 **已部署，但 App Check 註冊未完成 → 正式站翻譯失敗** |
+| 7 | 安全與部署 | 🟡 App Check 與 Gemini 翻譯已打通、可送出；待完成第三節的列印驗收、Firestore 強制驗證、預算警示（第二節問題已解決） |
 | 8 | 批次列印、CSV 匯出（加分項） | ⬜ 未開始 |
 
 **正式網址：** https://massage-37b8c.web.app （後台：/admin）
@@ -106,7 +106,7 @@ npm run dev
 **環境變數檔（皆不進版控，除了標註者）：**
 - `.env.local`：Firebase 設定、管理員 email、App Check 網站金鑰、`VITE_USE_EMULATORS=true`
 - `.env.production.local`：`VITE_USE_EMULATORS=false`（正式建置時覆寫）
-- `functions/.env`：`TRANSLATE_PROVIDER=gemini`、`GEMINI_MODEL=gemini-2.5-flash`、`GEMINI_LOCATION=global`（**非機密，可進版控**）
+- `functions/.env`：`TRANSLATE_PROVIDER=gemini`、`GEMINI_MODEL=gemini-3.8-flash`（2.5-flash 已於 2026-10 退役）、`GEMINI_LOCATION=global`（**非機密，可進版控**）
 - `functions/.env.local`：`TRANSLATE_PROVIDER=mock`（僅模擬器）
 - reCAPTCHA 的 Secret key **不需要也沒有存**在任何檔案。
 

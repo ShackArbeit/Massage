@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { FormProvider, useForm, type FieldErrors } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import BilingualLabel from "../components/form/BilingualLabel";
@@ -9,7 +9,7 @@ import Reveal from "../components/form/Reveal";
 import SectionCard from "../components/form/SectionCard";
 import SubmitBar, { type MissingItem } from "../components/form/SubmitBar";
 import PrivacyNote from "../components/PrivacyNote";
-import { clearDraft, loadDraft, saveDraft } from "../lib/draft";
+import { clearDraft } from "../lib/draft";
 import { submitErrorMessage, submitSurvey } from "../lib/submit";
 import { isEmptyValue, isVisible, staleFields } from "../survey/conditions";
 import {
@@ -60,9 +60,8 @@ const FIELD_ORDER: { key: string; questionKey: string; sectionId: SectionId; lab
 
 export default function SurveyPage() {
   const navigate = useNavigate();
-  const initialValues = useMemo(() => loadDraft(buildDefaultValues()), []);
   const methods = useForm<FormValues>({
-    defaultValues: initialValues,
+    defaultValues: buildDefaultValues(),
     resolver: zodResolver(surveySchema),
     mode: "onSubmit",
     reValidateMode: "onChange",
@@ -72,7 +71,7 @@ export default function SurveyPage() {
   const values = watch();
   const isSubmitted = formState.isSubmitted;
 
-  const [optionalOpen, setOptionalOpen] = useState(() => sectionHasData(OPTIONAL_SECTION, initialValues));
+  const [optionalOpen, setOptionalOpen] = useState(false);
   const [status, setStatus] = useState<{ kind: "success" | "error"; message: Bi }>();
   const optionalHasData = sectionHasData(OPTIONAL_SECTION, values);
 
@@ -81,14 +80,8 @@ export default function SurveyPage() {
     for (const f of staleFields(values)) setValue(f.name, f.value, { shouldValidate: isSubmitted });
   }, [values, setValue, isSubmitted]);
 
-  // 草稿保護（送出成功後不再寫回）
-  const submittedRef = useRef(false);
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      if (!submittedRef.current) saveDraft(values);
-    }, 400);
-    return () => window.clearTimeout(t);
-  }, [values]);
+  // 不保存草稿：重新整理後一律空白，並清除舊版殘留的資料
+  useEffect(clearDraft, []);
 
   const numbers = numberQuestions(values);
 
@@ -141,8 +134,6 @@ export default function SurveyPage() {
     setStatus(undefined);
     try {
       await submitSurvey(data);
-      submittedRef.current = true;
-      clearDraft();
       navigate("/thanks", { replace: true });
     } catch (e) {
       setStatus({ kind: "error", message: submitErrorMessage(e) });

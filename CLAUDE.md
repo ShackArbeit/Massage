@@ -204,7 +204,7 @@ Firebase Hosting ──► Cloud Function: translateToGerman (callable, App Chec
 - 要有載入、成功、失敗三種狀態；翻譯中與送出中按鈕要 disabled 並顯示 spinner。
 - 無障礙：label 與 input 正確關聯、鍵盤可操作、對比度足夠。
 
-**草稿保護：** 以 `localStorage` 暫存填寫內容（包裝 try/catch），重新整理不遺失；送出成功後清除。**簽名圖不存入 localStorage。**
+**不保存草稿：** 重新整理頁面後所有欄位一律清空，填寫內容與簽名圖都不存入 `localStorage`（原定的草稿保護已依 Shack 要求取消）。
 
 ---
 

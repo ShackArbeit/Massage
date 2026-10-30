@@ -11,7 +11,7 @@ setGlobalOptions({ region: "asia-east1", maxInstances: 5 });
 
 // 設定值可在 functions/.env（部署）或 functions/.env.local（僅模擬器）覆寫
 const PROVIDER = defineString("TRANSLATE_PROVIDER", { default: "gemini" });
-const GEMINI_MODEL = defineString("GEMINI_MODEL", { default: "gemini-2.5-flash" });
+const GEMINI_MODEL = defineString("GEMINI_MODEL", { default: "gemini-3.8-flash" });
 const GEMINI_LOCATION = defineString("GEMINI_LOCATION", { default: "global" });
 
 const MAX_ITEMS = 3;
